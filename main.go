@@ -74,7 +74,7 @@ type model struct {
 	categories []commandCategory
 	catIdx     int
 	cmdIdx     int
-	focusPane  int // 0 categories, 1 commands, 2 output
+	focusPane  int // visual hint only
 
 	viewport viewport.Model
 
@@ -282,14 +282,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case msg.Type == tea.KeyCtrlC || msg.String() == "q":
 			return m, tea.Quit
-		case msg.Type == tea.KeyTab:
-			m.focusPane = (m.focusPane + 1) % 3
-		case msg.Type == tea.KeyShiftTab:
-			m.focusPane = (m.focusPane + 2) % 3
 		case msg.Type == tea.KeyLeft || msg.String() == "h":
-			m.focusPane = max(0, m.focusPane-1)
+			if m.catIdx > 0 {
+				m.catIdx--
+				m.cmdIdx = 0
+			}
 		case msg.Type == tea.KeyRight || msg.String() == "l":
-			m.focusPane = min(2, m.focusPane+1)
+			if m.catIdx < len(m.categories)-1 {
+				m.catIdx++
+				m.cmdIdx = 0
+			}
 		case msg.String() == ":":
 			m.cmdMode = true
 			m.cmdInput.SetValue("")
@@ -323,62 +325,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.Type == tea.KeyDown || msg.String() == "j":
 			m.moveDown()
 		case msg.Type == tea.KeyPgUp:
-			if m.focusPane == 2 {
-				m.viewport.HalfViewUp()
-			}
+			m.viewport.HalfViewUp()
 		case msg.Type == tea.KeyPgDown:
-			if m.focusPane == 2 {
-				m.viewport.HalfViewDown()
-			}
+			m.viewport.HalfViewDown()
+		case msg.String() == "u":
+			m.viewport.HalfViewUp()
+		case msg.String() == "d":
+			m.viewport.HalfViewDown()
 		case msg.Type == tea.KeyEnter:
-			if m.focusPane == 0 {
-				m.focusPane = 1
-			}
-			if m.focusPane == 1 || m.focusPane == 2 {
-				return m.runSelected()
-			}
+			return m.runSelected()
 		}
-	}
-
-	if m.focusPane == 2 {
-		var vpCmd tea.Cmd
-		m.viewport, vpCmd = m.viewport.Update(msg)
-		return m, vpCmd
 	}
 
 	return m, nil
 }
 
 func (m model) moveUp() {
-	switch m.focusPane {
-	case 0:
-		if m.catIdx > 0 {
-			m.catIdx--
-			m.cmdIdx = 0
-		}
-	case 1:
-		if m.cmdIdx > 0 {
-			m.cmdIdx--
-		}
-	case 2:
-		m.viewport.LineUp(1)
+	if m.cmdIdx > 0 {
+		m.cmdIdx--
 	}
 }
 
 func (m model) moveDown() {
-	switch m.focusPane {
-	case 0:
-		if m.catIdx < len(m.categories)-1 {
-			m.catIdx++
-			m.cmdIdx = 0
-		}
-	case 1:
-		cmds := m.visibleCommands()
-		if m.cmdIdx < len(cmds)-1 {
-			m.cmdIdx++
-		}
-	case 2:
-		m.viewport.LineDown(1)
+	cmds := m.visibleCommands()
+	if m.cmdIdx < len(cmds)-1 {
+		m.cmdIdx++
 	}
 }
 
@@ -720,13 +691,12 @@ func (m model) renderBottomBar() string {
 	}
 
 	help := []string{
-		m.styles.hotkey.Render("tab") + " focus",
-		m.styles.hotkey.Render("↑/↓") + " move",
-		m.styles.hotkey.Render("←/→") + " focus",
-		m.styles.hotkey.Render("j/k") + " move",
+		m.styles.hotkey.Render("←/→") + " category",
+		m.styles.hotkey.Render("↑/↓") + " command",
 		m.styles.hotkey.Render("enter") + " run",
-		m.styles.hotkey.Render(":") + " command",
+		m.styles.hotkey.Render(":") + " raw cmd",
 		m.styles.hotkey.Render("/") + " filter",
+		m.styles.hotkey.Render("u/d") + " output scroll",
 		m.styles.hotkey.Render("r") + " rerun",
 		m.styles.hotkey.Render("q") + " quit",
 	}
