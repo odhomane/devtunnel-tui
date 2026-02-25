@@ -66,10 +66,10 @@ go run .
 ## Controls
 
 - `tab` / `shift+tab`: switch focus across panes (resources, commands, output)
-- `h/l`: move focus left/right
-- `j/k` or arrows: move selection/scroll
+- `h/l` or `←/→`: move focus left/right
+- `j/k` or `↑/↓`: move selection/scroll
 - `1..6`: jump directly to a resource category
-- `enter`: run selected command
+- `enter`: run selected command (from commands or output pane)
 - `:`: open command mode (type raw command after `devtunnel`)
 - `/`: filter commands in current category
 - `r`: rerun last command

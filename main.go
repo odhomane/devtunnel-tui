@@ -194,6 +194,7 @@ func initialModel() model {
 		statusText:  "checking devtunnel binary",
 		filterInput: filter,
 		cmdInput:    cmd,
+		focusPane:   1,
 	}
 }
 
@@ -278,49 +279,62 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateFilterMode(msg)
 		}
 
-		switch msg.String() {
-		case "ctrl+c", "q":
+		switch {
+		case msg.Type == tea.KeyCtrlC || msg.String() == "q":
 			return m, tea.Quit
-		case "tab":
+		case msg.Type == tea.KeyTab:
 			m.focusPane = (m.focusPane + 1) % 3
-		case "shift+tab":
+		case msg.Type == tea.KeyShiftTab:
 			m.focusPane = (m.focusPane + 2) % 3
-		case "h":
+		case msg.Type == tea.KeyLeft || msg.String() == "h":
 			m.focusPane = max(0, m.focusPane-1)
-		case "l":
+		case msg.Type == tea.KeyRight || msg.String() == "l":
 			m.focusPane = min(2, m.focusPane+1)
-		case ":":
+		case msg.String() == ":":
 			m.cmdMode = true
 			m.cmdInput.SetValue("")
 			m.cmdInput.Focus()
 			return m, textinput.Blink
-		case "/":
+		case msg.String() == "/":
 			m.filterMode = true
+			m.focusPane = 1
 			m.filterInput.Focus()
 			return m, textinput.Blink
-		case "r":
+		case msg.String() == "r":
 			if len(m.lastCmd) > 0 {
 				return m, runCommandCmd(m.lastCmd)
 			}
-		case "g":
+		case msg.String() == "g":
 			m.cmdIdx = 0
-		case "G":
+		case msg.String() == "G":
 			cmds := m.visibleCommands()
 			if len(cmds) > 0 {
 				m.cmdIdx = len(cmds) - 1
 			}
-		case "1", "2", "3", "4", "5", "6":
+		case msg.String() == "1", msg.String() == "2", msg.String() == "3", msg.String() == "4", msg.String() == "5", msg.String() == "6":
 			i := int(msg.String()[0] - '1')
 			if i >= 0 && i < len(m.categories) {
 				m.catIdx = i
 				m.cmdIdx = 0
+				m.focusPane = 1
 			}
-		case "up", "k":
+		case msg.Type == tea.KeyUp || msg.String() == "k":
 			m.moveUp()
-		case "down", "j":
+		case msg.Type == tea.KeyDown || msg.String() == "j":
 			m.moveDown()
-		case "enter":
-			if m.focusPane == 1 {
+		case msg.Type == tea.KeyPgUp:
+			if m.focusPane == 2 {
+				m.viewport.HalfViewUp()
+			}
+		case msg.Type == tea.KeyPgDown:
+			if m.focusPane == 2 {
+				m.viewport.HalfViewDown()
+			}
+		case msg.Type == tea.KeyEnter:
+			if m.focusPane == 0 {
+				m.focusPane = 1
+			}
+			if m.focusPane == 1 || m.focusPane == 2 {
 				return m.runSelected()
 			}
 		}
@@ -707,6 +721,8 @@ func (m model) renderBottomBar() string {
 
 	help := []string{
 		m.styles.hotkey.Render("tab") + " focus",
+		m.styles.hotkey.Render("↑/↓") + " move",
+		m.styles.hotkey.Render("←/→") + " focus",
 		m.styles.hotkey.Render("j/k") + " move",
 		m.styles.hotkey.Render("enter") + " run",
 		m.styles.hotkey.Render(":") + " command",
