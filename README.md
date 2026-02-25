@@ -65,12 +65,16 @@ go run .
 
 ## Controls
 
-- `j/k` or arrow keys: select command
-- `Enter`: execute selected command
+- `tab` / `shift+tab`: switch focus across panes (resources, commands, output)
+- `h/l`: move focus left/right
+- `j/k` or arrows: move selection/scroll
+- `1..6`: jump directly to a resource category
+- `enter`: run selected command
+- `:`: open command mode (type raw command after `devtunnel`)
+- `/`: filter commands in current category
 - `r`: rerun last command
-- `?`: toggle help
 - `q`: quit
-- In prompt mode:
+- Form mode:
   - `Enter`: next field / run
   - `Esc`: cancel
 
