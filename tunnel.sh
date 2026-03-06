@@ -36,7 +36,7 @@ fi
 _TUNNEL_LOG_DIR="${HOME}/.devtunnel/logs"
 _TUNNEL_AUTH_FILE="${HOME}/.devtunnel/.auth_ok"
 _TUNNEL_DEFAULT_EXPIRY="2d"
-_TUNNEL_LOGIN_FLAGS="-g -d"   # GitHub + device code only, no browser
+_TUNNEL_LOGIN_FLAGS="--github --device-code"   # GitHub + device code only, no browser
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 _T_RED='\033[0;31m'
@@ -95,14 +95,36 @@ _t_ensure_login() {
   echo ""
   mkdir -p "$(dirname "${_TUNNEL_AUTH_FILE}")"
 
-  # Force logout first to clear any stale Microsoft auth session
-  devtunnel user logout &>/dev/null || true
+  # Nuke all cached credentials to force a clean GitHub login
+  # If root via sudo, clear the real user's credentials
+  local _real_home="${HOME}"
+  if [[ "$(id -u)" -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
+    _real_home="$(eval echo ~"${SUDO_USER}")"
+    sudo -u "${SUDO_USER}" devtunnel user logout &>/dev/null || true
+  else
+    devtunnel user logout &>/dev/null || true
+  fi
+  # Remove devtunnel credential cache files (keychain bypass for root/headless)
+  rm -f "${_real_home}/.devtunnel/token" "${_real_home}/.devtunnel/tokens.json" \
+        "${_real_home}/.config/Microsoft/DevTunnels/tokens.json" \
+        "${_real_home}/.local/share/devtunnel/tokens.json" 2>/dev/null || true
 
-  # Run login, filter noisy lines, capture exit code properly
+  _t_info "Open: https://github.com/login/device"
+  echo ""
+
+  # Run login with GitHub device code.
+  # devtunnel cannot do GitHub OAuth as root (no browser). If we're root via sudo,
+  # run devtunnel as the original user so the GitHub flow works.
   local login_ok=0
-  BROWSER= devtunnel user login -g -d 2>&1 |     grep -v "Unable to open a web page" |     grep -v "Falling back to device code" || true
-  # Check if actually logged in after the command
-  if devtunnel user show 2>/dev/null | grep -q "Logged in"; then
+  if [[ "$(id -u)" -eq 0 ]] && [[ -n "${SUDO_USER:-}" ]]; then
+    _t_info "Detected sudo — running login as ${SUDO_USER} to allow GitHub auth..."
+    sudo -u "${SUDO_USER}" devtunnel user login ${_TUNNEL_LOGIN_FLAGS}
+  else
+    devtunnel user login ${_TUNNEL_LOGIN_FLAGS}
+  fi
+
+  # Verify login succeeded
+  if devtunnel user show 2>/dev/null | grep -qi "Logged in\|GitHub\|odhomane"; then
     login_ok=1
   fi
 
