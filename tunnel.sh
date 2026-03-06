@@ -66,11 +66,22 @@ _t_ensure_login() {
   fi
 
   _t_section "GitHub Login"
-  _t_info "Token expired or missing — logging in via device code (no browser needed)..."
+  _t_info "Logging in with GitHub device code..."
   echo ""
   mkdir -p "$(dirname "${_TUNNEL_AUTH_FILE}")"
 
-  if BROWSER= devtunnel user login ${_TUNNEL_LOGIN_FLAGS}; then
+  # Force logout first to clear any stale Microsoft auth session
+  devtunnel user logout &>/dev/null || true
+
+  # Run login, filter noisy lines, capture exit code properly
+  local login_ok=0
+  BROWSER= devtunnel user login -g -d 2>&1 |     grep -v "Unable to open a web page" |     grep -v "Falling back to device code" || true
+  # Check if actually logged in after the command
+  if devtunnel user show 2>/dev/null | grep -q "Logged in"; then
+    login_ok=1
+  fi
+
+  if [[ "${login_ok}" -eq 1 ]]; then
     touch "${_TUNNEL_AUTH_FILE}"
     _t_ok "Login successful — cached for 6 days."
   else
