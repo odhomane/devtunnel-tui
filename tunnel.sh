@@ -7,6 +7,31 @@
 [[ -n "${_TUNNEL_LOADED:-}" ]] && return 0
 _TUNNEL_LOADED=1
 
+# ─── History suppression ──────────────────────────────────────────────────────
+# Suppress tunnel commands from bash history
+HISTIGNORE="${HISTIGNORE:+${HISTIGNORE}:}tunnel *:tunnel"
+# For zsh: add to histignorepatterns equivalent via preexec
+if [[ -n "${ZSH_VERSION:-}" ]]; then
+  _tunnel_zsh_preexec() {
+    [[ "${1}" == tunnel* ]] && fc -p /dev/null 0 0 2>/dev/null || true
+  }
+  autoload -Uz add-zsh-hook 2>/dev/null && add-zsh-hook preexec _tunnel_zsh_preexec 2>/dev/null || true
+fi
+
+# ─── Bash history hook ───────────────────────────────────────────────────────
+# After each command, if it was a tunnel command remove it from history
+if [[ -n "${BASH_VERSION:-}" ]]; then
+  _tunnel_histclean() {
+    local last
+    last=$(HISTTIMEFORMAT= history 1 | sed 's/^ *[0-9]* *//')
+    if [[ "${last}" == tunnel* ]]; then
+      history -d $(history 1 | awk '{print $1}') 2>/dev/null || true
+    fi
+  }
+  # Append to existing PROMPT_COMMAND
+  PROMPT_COMMAND="${PROMPT_COMMAND:+${PROMPT_COMMAND}; }_tunnel_histclean"
+fi
+
 # ─── Config (prefixed to avoid polluting shell namespace) ────────────────────
 _TUNNEL_LOG_DIR="${HOME}/.devtunnel/logs"
 _TUNNEL_AUTH_FILE="${HOME}/.devtunnel/.auth_ok"
