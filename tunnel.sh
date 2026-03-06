@@ -11,6 +11,7 @@ _TUNNEL_LOADED=1
 _TUNNEL_LOG_DIR="${HOME}/.devtunnel/logs"
 _TUNNEL_AUTH_FILE="${HOME}/.devtunnel/.auth_ok"
 _TUNNEL_DEFAULT_EXPIRY="2d"
+_TUNNEL_LOGIN_FLAGS="-g -d"   # GitHub + device code only, no browser
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 _T_RED='\033[0;31m'
@@ -65,11 +66,11 @@ _t_ensure_login() {
   fi
 
   _t_section "GitHub Login"
-  _t_info "Token expired or missing — logging in via GitHub device code..."
+  _t_info "Token expired or missing — logging in via device code (no browser needed)..."
   echo ""
   mkdir -p "$(dirname "${_TUNNEL_AUTH_FILE}")"
 
-  if devtunnel user login -g -d; then
+  if BROWSER= devtunnel user login ${_TUNNEL_LOGIN_FLAGS}; then
     touch "${_TUNNEL_AUTH_FILE}"
     _t_ok "Login successful — cached for 6 days."
   else
